@@ -59,31 +59,46 @@ event bro_init() &priority=-1000
 	{
 	for ( stream in Log::active_streams )
 		{
-		local filt = Log::get_filter(stream, "default");
+		for ( filter_name in Log::get_filter_names(stream) )
+			{
+			# This is here because we're modifying the list of filters right now...
+			if ( /-json-streaming$/ in filter_name )
+				next;
 
-		if ( JSONStreaming::disable_default_logs )
-			filt$name = "default";
-		else
-			filt$name = "json-streaming";
+			local filt = Log::get_filter(stream, filter_name);
 
-		filt$path = "json_streaming_" + filt$path;
-		filt$writer = Log::WRITER_ASCII;
-		filt$postprocessor = rotate_logs;
-		filt$interv = rotation_interval;
+			if ( filter_name == "default" && JSONStreaming::disable_default_logs )
+				filt$name = "default";
+			else
+				filt$name = filter_name + "-json-streaming";
 
-		filt$ext_func = add_json_streaming_log_extension;
-		filt$ext_prefix = "_";
+			if ( filt?$path )
+				filt$path = "json_streaming_" + filt$path;
+			
+			if ( filt?$path_func )
+				{
+				# We just delete any path function to get rid of dynamic log names.
+				delete filt$path_func;
+				}
+			
+			filt$writer = Log::WRITER_ASCII;
+			filt$postprocessor = rotate_logs;
+			filt$interv = rotation_interval;
 
-		# This works around a bug in the base logging script 
-		# that sets the default value to an incompatible type
-		if ( |filt$config| == 0 )
-			filt$config = table_string_of_string();
+			filt$ext_func = add_json_streaming_log_extension;
+			filt$ext_prefix = "_";
 
-		filt$config["use_json"] = "T";
-		filt$config["json_timestamps"] = "JSON::TS_ISO8601";
-		# Ensure compressed logs are disabled.
-		filt$config["gzip_level"] = "0";
+			# This works around a bug in the base logging script 
+			# that sets the default value to an incompatible type
+			if ( |filt$config| == 0 )
+				filt$config = table_string_of_string();
 
-		local result = Log::add_filter(stream, filt);
+			filt$config["use_json"] = "T";
+			filt$config["json_timestamps"] = "JSON::TS_ISO8601";
+			# Ensure compressed logs are disabled.
+			filt$config["gzip_level"] = "0";
+
+			local result = Log::add_filter(stream, filt);
+			}
 		}
 	}
