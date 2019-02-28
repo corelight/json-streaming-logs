@@ -74,12 +74,8 @@ event bro_init() &priority=-1000
 
 			if ( filt?$path )
 				filt$path = "json_streaming_" + filt$path;
-			
-			if ( filt?$path_func )
-				{
-				# We just delete any path function to get rid of dynamic log names.
-				delete filt$path_func;
-				}
+			else if ( filt?$path_func ) 
+				filt$path = "json_streaming_" + filt$path_func(stream, "", []);
 			
 			filt$writer = Log::WRITER_ASCII;
 			filt$postprocessor = rotate_logs;
