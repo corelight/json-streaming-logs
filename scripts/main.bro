@@ -19,6 +19,10 @@ export {
 	## set separately since these logs are ephemeral and meant to be
 	## immediately carried off to some other storage and search system.
 	const JSONStreaming::rotation_interval = 15mins &redef;
+
+	## If you would like to disable rotation of the "JSON streaming" output log
+	## files entirely, set this to `F`.
+	const JSONStreaming::enable_log_rotation = T &redef;
 }
 
 type JsonStreamingExtension: record {
@@ -78,8 +82,12 @@ event bro_init() &priority=-1000
 				filt$path = "json_streaming_" + filt$path_func(stream, "", []);
 			
 			filt$writer = Log::WRITER_ASCII;
-			filt$postprocessor = rotate_logs;
-			filt$interv = rotation_interval;
+
+			if ( JSONStreaming::enable_log_rotation )
+				{
+				filt$postprocessor = rotate_logs;
+				filt$interv = rotation_interval;
+				}
 
 			filt$ext_func = add_json_streaming_log_extension;
 			filt$ext_prefix = "_";
