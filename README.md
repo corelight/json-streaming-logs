@@ -21,6 +21,8 @@ the `JSONStreaming::disable_default_logs` variable to `T`to disable all of the d
 logs.  The only potential issue is that your logs will become completely
 ephemeral with this change because no logs will be rotated into local storage.
 
+If your Zeek instance version => 3.1 use the main.zeek instead use main.bro
+
 Contact
 -------
 
