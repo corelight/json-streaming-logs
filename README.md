@@ -21,8 +21,9 @@ the `JSONStreaming::disable_default_logs` variable to `T`to disable all of the d
 logs.  The only potential issue is that your logs will become completely
 ephemeral with this change because no logs will be rotated into local storage.
 
-If your Zeek instance version => 3.1 use main.zeek and \__load__.zeek, otherwise use main.bro and \__load__.bro  
-You can place the files in $zeekpath/share/zeek/site/scripts/
+## Setup
+If your Zeek/bro instance version => 3.1 use the scripts in scripts/zeek, otherwise use scripts/bro  
+Create a dictionary in $zeekpath/share/zeek/site named 'scripts' and move the two files.
 You will need to make a reference to the path in a already loaded script, like the $zeekpath/share/zeek/site/local.zeek  
 Just add this line:  
 ```
