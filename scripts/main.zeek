@@ -9,15 +9,19 @@ export {
 	## associated settings.
 	const JSONStreaming::disable_default_logs = F &redef;
 
-	## The number of extra files that Bro will leave laying around so that
-	## any process watching the inode can finish.  The files will be named
-	## with the following scheme: `json_streaming_<path>.<num>.log`.  So, the 
-	## first conn log would be named: `json_streaming_conn.1.log`.
+	## If you would like to disable rotation of the "JSON streaming" output log
+	## files entirely, set this to `F`.
+	const JSONStreaming::enable_log_rotation = T &redef;
+
+	## If rotation is enabled, this is the number of extra files that Bro will 
+	## leave laying around so that any process watching the inode can finish.  
+	## The files will be named with the following scheme: `json_streaming_<path>.<num>.log`.
+	## So, the first conn log would be named: `json_streaming_conn.1.log`.
 	const JSONStreaming::extra_files = 4 &redef;
 
-	## A rotation interval specifically for the JSON streaming logs.  This is 
-	## set separately since these logs are ephemeral and meant to be
-	## immediately carried off to some other storage and search system.
+	## If rotation is enabled, this is the rotation interval specifically for the 
+	## JSON streaming logs.  This is set separately since these logs are ephemeral
+	## and meant to be immediately carried off to some other storage and search system.
 	const JSONStreaming::rotation_interval = 15mins &redef;
 }
 
@@ -78,8 +82,12 @@ event bro_init() &priority=-1000
 				filt$path = "json_streaming_" + filt$path_func(stream, "", []);
 			
 			filt$writer = Log::WRITER_ASCII;
-			filt$postprocessor = rotate_logs;
-			filt$interv = rotation_interval;
+
+			if ( JSONStreaming::enable_log_rotation )
+				{
+				filt$postprocessor = rotate_logs;
+				filt$interv = rotation_interval;
+				}
 
 			filt$ext_func = add_json_streaming_log_extension;
 			filt$ext_prefix = "_";
