@@ -17,7 +17,7 @@ export {
 	## leave laying around so that any process watching the inode can finish.  
 	## The files will be named with the following scheme: `json_streaming_<path>.<num>.log`.
 	## So, the first conn log would be named: `json_streaming_conn.1.log`.
-	const JSONStreaming::extra_files = 4 &redef;
+	const JSONStreaming::extra_files: int = 4 &redef;
 
 	## If rotation is enabled, this is the rotation interval specifically for the 
 	## JSON streaming logs.  This is set separately since these logs are ephemeral
@@ -55,12 +55,23 @@ function rotate_logs(info: Log::RotationInfo): bool
 			}
 		--i;
 		}
-	rename(info$fname, info$path + ".1.log");
+
+	if ( extra_files > 0 )
+		{
+		rename(info$fname, info$path + ".1.log");
+		}
+	else 
+		{
+		# If no extra files are desired, just remove this file.
+		unlink(info$fname);
+		}
+
 	return T;
 	}
 
-event zeek_init() &priority=-1000
+event zeek_init() &priority=-5
 	{
+	local new_filters: set[Log::ID, Log::Filter] = set();
 	for ( stream in Log::active_streams )
 		{
 		for ( filter_name in Log::get_filter_names(stream) )
@@ -71,7 +82,7 @@ event zeek_init() &priority=-1000
 
 			local filt = Log::get_filter(stream, filter_name);
 
-			if ( filter_name == "default" && JSONStreaming::disable_default_logs )
+			if ( JSONStreaming::disable_default_logs && filter_name == "default" )
 				filt$name = "default";
 			else
 				filt$name = filter_name + "-json-streaming";
@@ -102,7 +113,14 @@ event zeek_init() &priority=-1000
 			# Ensure compressed logs are disabled.
 			filt$config["gzip_level"] = "0";
 
-			local result = Log::add_filter(stream, filt);
+			add new_filters[stream, filt];
 			}
+		}
+
+	# Add the filters separately to avoid problems with modifying a set/table
+	# while it's being iterated over.
+	for ( [stream, filt] in new_filters )
+		{
+		Log::add_filter(stream, filt);
 		}
 	}
