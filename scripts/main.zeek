@@ -2,6 +2,10 @@
 module JSONStreaming;
 
 export {
+	## An optional system name for the extension fields if you would 
+	## like to provide it.
+	option JSONStreaming::system_name = "";
+
 	## If you would like to disable your default logs and only log the
 	## "JSON streaming" format of logs set this to `T`.  By default this setting
 	## will continue logging your logs in whatever format you specified 
@@ -28,6 +32,8 @@ export {
 type JsonStreamingExtension: record {
 	## The log stream that this log was written to.
 	path:   string &log;
+	## Optionally log a name for the system this log entry came from.
+	system_name: string &log &optional;
 	## Timestamp when the log was written. This is a
 	## timestamp as given by most other software.  Any
 	## other log-specific fields will still be written.
@@ -36,8 +42,13 @@ type JsonStreamingExtension: record {
 
 function add_json_streaming_log_extension(path: string): JsonStreamingExtension
 	{
-	return JsonStreamingExtension($path     = sub(path, /^json_streaming_/, ""),
-	                              $write_ts = network_time());
+	local e = JsonStreamingExtension($path     = sub(path, /^json_streaming_/, ""),
+	                                 $write_ts = network_time());
+
+	if ( system_name != "" )
+		e$system_name = system_name;
+
+	return e;
 	}
 
 # We get the log suffix just to be safe.
