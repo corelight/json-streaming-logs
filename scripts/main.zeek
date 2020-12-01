@@ -2,6 +2,10 @@
 module JSONStreaming;
 
 export {
+	## An optional system name for the extension fields if you would 
+	## like to provide it.
+	option JSONStreaming::system_name = "";
+
 	## If you would like to disable your default logs and only log the
 	## "JSON streaming" format of logs set this to `T`.  By default this setting
 	## will continue logging your logs in whatever format you specified 
@@ -13,11 +17,11 @@ export {
 	## files entirely, set this to `F`.
 	const JSONStreaming::enable_log_rotation = T &redef;
 
-	## If rotation is enabled, this is the number of extra files that Bro will 
+	## If rotation is enabled, this is the number of extra files that Zeek will 
 	## leave laying around so that any process watching the inode can finish.  
 	## The files will be named with the following scheme: `json_streaming_<path>.<num>.log`.
 	## So, the first conn log would be named: `json_streaming_conn.1.log`.
-	const JSONStreaming::extra_files = 4 &redef;
+	const JSONStreaming::extra_files: int = 4 &redef;
 
 	## If rotation is enabled, this is the rotation interval specifically for the 
 	## JSON streaming logs.  This is set separately since these logs are ephemeral
@@ -28,6 +32,8 @@ export {
 type JsonStreamingExtension: record {
 	## The log stream that this log was written to.
 	path:   string &log;
+	## Optionally log a name for the system this log entry came from.
+	system_name: string &log &optional;
 	## Timestamp when the log was written. This is a
 	## timestamp as given by most other software.  Any
 	## other log-specific fields will still be written.
@@ -36,12 +42,17 @@ type JsonStreamingExtension: record {
 
 function add_json_streaming_log_extension(path: string): JsonStreamingExtension
 	{
-	return JsonStreamingExtension($path     = sub(path, /^json_streaming_/, ""),
-	                              $write_ts = network_time());
+	local e = JsonStreamingExtension($path     = sub(path, /^json_streaming_/, ""),
+	                                 $write_ts = network_time());
+
+	if ( system_name != "" )
+		e$system_name = system_name;
+
+	return e;
 	}
 
 # We get the log suffix just to be safe.
-global log_suffix = getenv("BRO_LOG_SUFFIX") == "" ? "log" : getenv("BRO_LOG_SUFFIX");
+global log_suffix = getenv("ZEEK_LOG_SUFFIX") == "" ? "log" : getenv("ZEEK_LOG_SUFFIX");
 
 function rotate_logs(info: Log::RotationInfo): bool
 	{
@@ -55,12 +66,23 @@ function rotate_logs(info: Log::RotationInfo): bool
 			}
 		--i;
 		}
-	rename(info$fname, info$path + ".1.log");
+
+	if ( extra_files > 0 )
+		{
+		rename(info$fname, info$path + ".1.log");
+		}
+	else 
+		{
+		# If no extra files are desired, just remove this file.
+		unlink(info$fname);
+		}
+
 	return T;
 	}
 
-event bro_init() &priority=-1000
+event zeek_init() &priority=-5
 	{
+	local new_filters: set[Log::ID, Log::Filter] = set();
 	for ( stream in Log::active_streams )
 		{
 		for ( filter_name in Log::get_filter_names(stream) )
@@ -71,7 +93,7 @@ event bro_init() &priority=-1000
 
 			local filt = Log::get_filter(stream, filter_name);
 
-			if ( filter_name == "default" && JSONStreaming::disable_default_logs )
+			if ( JSONStreaming::disable_default_logs && filter_name == "default" )
 				filt$name = "default";
 			else
 				filt$name = filter_name + "-json-streaming";
@@ -102,7 +124,14 @@ event bro_init() &priority=-1000
 			# Ensure compressed logs are disabled.
 			filt$config["gzip_level"] = "0";
 
-			local result = Log::add_filter(stream, filt);
+			add new_filters[stream, filt];
 			}
+		}
+
+	# Add the filters separately to avoid problems with modifying a set/table
+	# while it's being iterated over.
+	for ( [stream, filt] in new_filters )
+		{
+		Log::add_filter(stream, filt);
 		}
 	}
