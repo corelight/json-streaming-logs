@@ -83,6 +83,8 @@ function rotate_logs(info: Log::RotationInfo): bool
 event zeek_init() &priority=-5
 	{
 	local new_filters: set[Log::ID, Log::Filter] = set();
+	local filt: Log::Filter;
+
 	for ( stream in Log::active_streams )
 		{
 		for ( filter_name in Log::get_filter_names(stream) )
@@ -91,7 +93,7 @@ event zeek_init() &priority=-5
 			if ( /-json-streaming$/ in filter_name )
 				next;
 
-			local filt = Log::get_filter(stream, filter_name);
+			filt = Log::get_filter(stream, filter_name);
 
 			if ( JSONStreaming::disable_default_logs && filter_name == "default" )
 				filt$name = "default";
@@ -114,8 +116,11 @@ event zeek_init() &priority=-5
 			filt$ext_func = add_json_streaming_log_extension;
 			filt$ext_prefix = "_";
 
-			# This works around a bug in the base logging script
-			# that sets the default value to an incompatible type
+			# This works around a bug in Zeek's base logging script
+			# that sets the default value to an incompatible type.
+			# It only affects Zeek versions 3.0 and older, but we
+			# don't have good ways to do version-checking for these,
+			# so just leave the fix in place.
 			if ( |filt$config| == 0 )
 				filt$config = table_string_of_string();
 
