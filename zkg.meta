@@ -2,3 +2,4 @@
 description = JSON streaming logs
 tags = logs, json, streaming, stream, filebeat, splunk_forwarder, logstash
 script_dir = scripts
+test_command = cd testing && btest -d -c btest.cfg
