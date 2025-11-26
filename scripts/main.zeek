@@ -90,11 +90,6 @@ event zeek_init() &priority=-5
 
 	for ( stream in Log::active_streams )
 		{
-		## Skip streams not in the enabled set (unless enabled_logs is empty)
-		local stream_name = Log::id_name(stream);
-		if ( |JSONStreaming::enabled_logs| > 0 && !(stream_name in JSONStreaming::enabled_logs) )
-		    next;
-
 		for ( filter_name in Log::get_filter_names(stream) )
 			{
 			# This is here because we're modifying the list of filters right now...
@@ -112,6 +107,12 @@ event zeek_init() &priority=-5
 				filt$path = "json_streaming_" + filt$path;
 			else if ( filt?$path_func )
 				filt$path = "json_streaming_" + filt$path_func(stream, "", []);
+
+			# Skip this filter if it's not in the enabled set (unless enabled_logs is empty)
+			# Remove leading directories, json_streaming_, and log extension
+			local log_type = sub(sub(sub(filt$path, /^.*\//, ""), /^json_streaming_?/, ""), /\.[^\.]+/, "");
+			if ( |JSONStreaming::enabled_logs| > 0 && !(log_type in JSONStreaming::enabled_logs) )
+			    next;
 
 			filt$writer = Log::WRITER_ASCII;
 
