@@ -91,7 +91,8 @@ event zeek_init() &priority=-5
 	for ( stream in Log::active_streams )
 		{
 		## Skip streams not in the enabled set (unless enabled_logs is empty)
-		if ( |JSONStreaming::enabled_logs| > 0 && !(stream in JSONStreaming::enabled_logs) )
+		local stream_name = Log::id_name(stream);
+		if ( |JSONStreaming::enabled_logs| > 0 && !(stream_name in JSONStreaming::enabled_logs) )
 		    next;
 
 		for ( filter_name in Log::get_filter_names(stream) )
