@@ -28,8 +28,8 @@ export {
 	## and meant to be immediately carried off to some other storage and search system.
 	const JSONStreaming::rotation_interval = 15mins &redef;
 
-	## Set of log names to get the json_streaming_ treatment. If empty, do all logs.
-	const JSONStreaming::enabled_logs: set[string] = set() &redef;
+	## Set of log streams to get the json_streaming_ treatment. If empty, do all logs.
+	const JSONStreaming::enabled_logs: set[Log::ID] = set() &redef;
 }
 
 type JsonStreamingExtension: record {
@@ -90,6 +90,10 @@ event zeek_init() &priority=-5
 
 	for ( stream in Log::active_streams )
 		{
+		# Skip this filter if it's not in the enabled set (unless enabled_logs is empty)
+		if ( |JSONStreaming::enabled_logs| > 0 && !(stream in JSONStreaming::enabled_logs) )
+		    next;
+
 		for ( filter_name in Log::get_filter_names(stream) )
 			{
 			# This is here because we're modifying the list of filters right now...
@@ -107,12 +111,6 @@ event zeek_init() &priority=-5
 				filt$path = "json_streaming_" + filt$path;
 			else if ( filt?$path_func )
 				filt$path = "json_streaming_" + filt$path_func(stream, "", []);
-
-			# Skip this filter if it's not in the enabled set (unless enabled_logs is empty)
-			# Remove leading directories, json_streaming_, and log extension
-			local log_type = sub(sub(sub(filt$path, /^.*\//, ""), /^json_streaming_?/, ""), /\.[^\.]+/, "");
-			if ( |JSONStreaming::enabled_logs| > 0 && !(log_type in JSONStreaming::enabled_logs) )
-			    next;
 
 			filt$writer = Log::WRITER_ASCII;
 
