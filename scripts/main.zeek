@@ -27,6 +27,9 @@ export {
 	## JSON streaming logs.  This is set separately since these logs are ephemeral
 	## and meant to be immediately carried off to some other storage and search system.
 	const JSONStreaming::rotation_interval = 15mins &redef;
+
+	## Set of log streams to get the json_streaming_ treatment. If empty, do all logs.
+	const JSONStreaming::enabled_logs: set[Log::ID] = set() &redef;
 }
 
 type JsonStreamingExtension: record {
@@ -87,6 +90,10 @@ event zeek_init() &priority=-5
 
 	for ( stream in Log::active_streams )
 		{
+		# Skip this filter if it's not in the enabled set (unless enabled_logs is empty)
+		if ( |JSONStreaming::enabled_logs| > 0 && !(stream in JSONStreaming::enabled_logs) )
+		    next;
+
 		for ( filter_name in Log::get_filter_names(stream) )
 			{
 			# This is here because we're modifying the list of filters right now...
